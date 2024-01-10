@@ -4,12 +4,12 @@ plugins {
 
 android {
     namespace = "com.example.callrecorderproject9"
-    compileSdk = 28
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.example.callrecorderproject9"
         minSdk = 21
-        targetSdk = 28
+        targetSdk = 23
         versionCode = 1
         versionName = "1.0"
 

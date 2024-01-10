@@ -110,7 +110,7 @@ public class CallRecorder extends Service {
 
                     recorder = new MediaRecorder();
                     recorder.setAudioSamplingRate(8000);
-                    recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+                    recorder.setAudioSource(MediaRecorder.AudioSource.VOICE_CALL);
                     recorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
                     recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
                     recorder.setOutputFile(sampleDir.getAbsolutePath() + "/" + "Incoming \n" + number + "  \n" + time + "  \n" + " Call.amr");
@@ -132,7 +132,7 @@ public class CallRecorder extends Service {
 
                         recorder = new MediaRecorder();
                         recorder.setAudioSamplingRate(8000);
-                        recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+                        recorder.setAudioSource(MediaRecorder.AudioSource.VOICE_CALL); //New Changes
                         recorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
                         recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
                         recorder.setOutputFile(sampleDir.getAbsolutePath() + "/" + "Outgoing \n" + savedNumber + "  \n" + time + "  \n" + " Call.amr");
