@@ -6,12 +6,19 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.media.MediaRecorder;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Environment;
 import android.os.IBinder;
 import android.telephony.TelephonyManager;
+import android.widget.Toast;
 
 import androidx.annotation.Nullable;
+
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.StorageReference;
+import com.google.firebase.storage.UploadTask;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
@@ -35,6 +42,8 @@ public class CallRecorder extends Service {
     public static final String EXTRA_PHONE_NUMBER = "android.intent.extra.PHONE_NUMBER";
     private int lastState = TelephonyManager.CALL_STATE_IDLE;
     private boolean isIncoming;
+    private String userId;
+    private FirebaseAuth auth;
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
@@ -64,65 +73,81 @@ public class CallRecorder extends Service {
             String fileName = String.format("Incoming_%s_%s_Call.amr", savedNumber, time);
             File audioFile = new File(sampleDir, fileName);
 
-            byte[] audioData = convertAmrToByteArray(audioFile);
-
-            sendAudioDataToServer(audioData);
+            saveAudioToFirebaseStorage(audioFile);
         }
     }
 
-    private byte[] convertAmrToByteArray(File file) {
-        try {
-            FileInputStream fileInputStream = new FileInputStream(file);
-            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+    private void saveAudioToFirebaseStorage(File audioFile) {
+        auth = FirebaseAuth.getInstance();
+        userId = auth.getCurrentUser().getUid();
+        if (userId != null) {
+            FirebaseStorage storage = FirebaseStorage.getInstance();
+            StorageReference storageRef = storage.getReference().child("audio").child(userId).child(audioFile.getName());
 
-            byte[] buffer = new byte[1024];
-            int len;
-            while ((len = fileInputStream.read(buffer)) != -1) {
-                byteArrayOutputStream.write(buffer, 0, len);
-            }
+            Uri fileUri = Uri.fromFile(audioFile);
+            UploadTask uploadTask = storageRef.putFile(fileUri);
 
-            fileInputStream.close();
-            byteArrayOutputStream.close();
-
-            return byteArrayOutputStream.toByteArray();
-        } catch (IOException e) {
-            e.printStackTrace();
-            return null;
+            uploadTask.addOnSuccessListener(taskSnapshot -> {
+                Toast.makeText(CallRecorder.this, "Audio file uploaded to Firebase Storage", Toast.LENGTH_SHORT).show();
+            }).addOnFailureListener(e -> {
+                Toast.makeText(CallRecorder.this, "Failed to upload audio file: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            });
         }
     }
 
-    private void sendAudioDataToServer(byte[] audioData) {
-        if (audioData != null) {
-            new SendAudioDataTask().execute(audioData);
-        }
-    }
-
-    private class SendAudioDataTask extends AsyncTask<byte[], Void, Void> {
-        @Override
-        protected Void doInBackground(byte[]... params) {
-            try {
-                byte[] audioData = params[0];
-
-                URL url = new URL("https://scamdetectorserver.onrender.com/formEndpoint");
-                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-                connection.setRequestMethod("POST");
-                connection.setDoOutput(true);
-
-                DataOutputStream outputStream = new DataOutputStream(connection.getOutputStream());
-                outputStream.write(audioData);
-                outputStream.flush();
-                outputStream.close();
-
-                int responseCode = connection.getResponseCode();
-
-                connection.disconnect();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-
-            return null;
-        }
-    }
+//    private byte[] convertAmrToByteArray(File file) {
+//        try {
+//            FileInputStream fileInputStream = new FileInputStream(file);
+//            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+//
+//            byte[] buffer = new byte[1024];
+//            int len;
+//            while ((len = fileInputStream.read(buffer)) != -1) {
+//                byteArrayOutputStream.write(buffer, 0, len);
+//            }
+//
+//            fileInputStream.close();
+//            byteArrayOutputStream.close();
+//
+//            return byteArrayOutputStream.toByteArray();
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//            return null;
+//        }
+//    }
+//
+//    private void sendAudioDataToServer(byte[] audioData) {
+//        if (audioData != null) {
+//            new SendAudioDataTask().execute(audioData);
+//        }
+//    }
+//
+//    private class SendAudioDataTask extends AsyncTask<byte[], Void, Void> {
+//        @Override
+//        protected Void doInBackground(byte[]... params) {
+//            try {
+//                byte[] audioData = params[0];
+//
+//                URL url = new URL("https://scamdetectorserver.onrender.com/formEndpoint");
+//                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+//                connection.setRequestMethod("POST");
+//                connection.setDoOutput(true);
+//
+//                DataOutputStream outputStream = new DataOutputStream(connection.getOutputStream());
+//                outputStream.write(audioData);
+//                outputStream.flush();
+//                outputStream.close();
+//
+//                int responseCode = connection.getResponseCode();
+//
+//                connection.disconnect();
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
+//
+//            return null;
+//        }
+//    }
 
     public abstract class PhoneCallReceiver extends BroadcastReceiver {
 
@@ -180,7 +205,7 @@ public class CallRecorder extends Service {
 
                     recorder = new MediaRecorder();
                     recorder.setAudioSamplingRate(8000);
-                    recorder.setAudioSource(MediaRecorder.AudioSource.VOICE_CALL);
+                    recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
                     recorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
                     recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
                     recorder.setOutputFile(sampleDir.getAbsolutePath() + "/" + "Incoming \n" + number + "  \n" + time + "  \n" + " Call.amr");

@@ -2,4 +2,7 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <color name="Text_Default_Color">#808080</color>
+    <color name="hintColor">#C4C4C4</color>
 </resources>
