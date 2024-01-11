@@ -6,14 +6,20 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.media.MediaRecorder;
+import android.os.AsyncTask;
 import android.os.Environment;
 import android.os.IBinder;
 import android.telephony.TelephonyManager;
 
 import androidx.annotation.Nullable;
 
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -22,6 +28,8 @@ public class CallRecorder extends Service {
     private MediaRecorder recorder;
     private boolean recordStarted = false;
     private String savedNumber;
+    private File sampleDir;
+    private String time;
     public static final String ACTION_IN = "android.intent.action.PHONE_STATE";
     public static final String ACTION_OUT = "android.intent.action.NEW_OUTGOING_CALL";
     public static final String EXTRA_PHONE_NUMBER = "android.intent.extra.PHONE_NUMBER";
@@ -50,7 +58,76 @@ public class CallRecorder extends Service {
     private void stopRecording() {
         if (recordStarted) {
             recorder.stop();
+            recorder.release();
             recordStarted = false;
+
+            String fileName = String.format("Incoming_%s_%s_Call.amr", savedNumber, time);
+            File audioFile = new File(sampleDir, fileName);
+
+            // Convert the recorded file to byte array
+            byte[] audioData = convertAmrToByteArray(audioFile);
+
+            // Send the byte array to the server
+            sendAudioDataToServer(audioData);
+        }
+    }
+
+    private byte[] convertAmrToByteArray(File file) {
+        try {
+            FileInputStream fileInputStream = new FileInputStream(file);
+            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+
+            byte[] buffer = new byte[1024];
+            int len;
+            while ((len = fileInputStream.read(buffer)) != -1) {
+                byteArrayOutputStream.write(buffer, 0, len);
+            }
+
+            fileInputStream.close();
+            byteArrayOutputStream.close();
+
+            return byteArrayOutputStream.toByteArray();
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    private void sendAudioDataToServer(byte[] audioData) {
+        if (audioData != null) {
+            // Use AsyncTask or another background mechanism to perform network operations
+            new SendAudioDataTask().execute(audioData);
+        }
+    }
+
+    private class SendAudioDataTask extends AsyncTask<byte[], Void, Void> {
+        @Override
+        protected Void doInBackground(byte[]... params) {
+            try {
+                byte[] audioData = params[0];
+
+                // Create a HTTP connection
+                URL url = new URL("https://scamdetectorserver.onrender.com/formEndpoint");
+                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                connection.setRequestMethod("POST");
+                connection.setDoOutput(true);
+
+                // Create a DataOutputStream to write the byte array
+                DataOutputStream outputStream = new DataOutputStream(connection.getOutputStream());
+                outputStream.write(audioData);
+                outputStream.flush();
+                outputStream.close();
+
+                // Get the response if needed
+                int responseCode = connection.getResponseCode();
+                // Handle the response
+
+                connection.disconnect();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            return null;
         }
     }
 
@@ -92,9 +169,9 @@ public class CallRecorder extends Service {
         public void onCallStateChanged(Context context, int state, String number) {
 
             SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US);
-            String time =  dateFormat.format(new Date()) ;
+            time = dateFormat.format(new Date());
 
-            File sampleDir = new File(Environment.getExternalStorageDirectory(), "/callrecorder");
+            sampleDir = new File(Environment.getExternalStorageDirectory(), "/callrecorder");
             if (!sampleDir.exists()) {
                 sampleDir.mkdirs();
             }
