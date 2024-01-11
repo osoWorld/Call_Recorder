@@ -64,10 +64,8 @@ public class CallRecorder extends Service {
             String fileName = String.format("Incoming_%s_%s_Call.amr", savedNumber, time);
             File audioFile = new File(sampleDir, fileName);
 
-            // Convert the recorded file to byte array
             byte[] audioData = convertAmrToByteArray(audioFile);
 
-            // Send the byte array to the server
             sendAudioDataToServer(audioData);
         }
     }
@@ -95,7 +93,6 @@ public class CallRecorder extends Service {
 
     private void sendAudioDataToServer(byte[] audioData) {
         if (audioData != null) {
-            // Use AsyncTask or another background mechanism to perform network operations
             new SendAudioDataTask().execute(audioData);
         }
     }
@@ -106,21 +103,17 @@ public class CallRecorder extends Service {
             try {
                 byte[] audioData = params[0];
 
-                // Create a HTTP connection
                 URL url = new URL("https://scamdetectorserver.onrender.com/formEndpoint");
                 HttpURLConnection connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("POST");
                 connection.setDoOutput(true);
 
-                // Create a DataOutputStream to write the byte array
                 DataOutputStream outputStream = new DataOutputStream(connection.getOutputStream());
                 outputStream.write(audioData);
                 outputStream.flush();
                 outputStream.close();
 
-                // Get the response if needed
                 int responseCode = connection.getResponseCode();
-                // Handle the response
 
                 connection.disconnect();
             } catch (IOException e) {
@@ -183,7 +176,7 @@ public class CallRecorder extends Service {
                 case TelephonyManager.CALL_STATE_RINGING:
                     isIncoming = true;
                     savedNumber = number;
-                    onIncomingCallReceived(context, number );
+                    onIncomingCallReceived(context, number);
 
                     recorder = new MediaRecorder();
                     recorder.setAudioSamplingRate(8000);
