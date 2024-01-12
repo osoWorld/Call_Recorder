@@ -11,11 +11,13 @@ import android.os.AsyncTask;
 import android.os.Environment;
 import android.os.IBinder;
 import android.telephony.TelephonyManager;
+import android.util.Log;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 import com.google.firebase.storage.UploadTask;
@@ -30,6 +32,7 @@ import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.util.UUID;
 
 public class CallRecorder extends Service {
     private MediaRecorder recorder;
@@ -44,6 +47,7 @@ public class CallRecorder extends Service {
     private boolean isIncoming;
     private String userId;
     private FirebaseAuth auth;
+
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
@@ -66,8 +70,13 @@ public class CallRecorder extends Service {
 
     private void stopRecording() {
         if (recordStarted) {
-            recorder.stop();
-            recorder.release();
+            try {
+                recorder.stop();
+                recorder.release();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
             recordStarted = false;
 
             String fileName = String.format("Incoming_%s_%s_Call.amr", savedNumber, time);
@@ -79,75 +88,33 @@ public class CallRecorder extends Service {
 
     private void saveAudioToFirebaseStorage(File audioFile) {
         auth = FirebaseAuth.getInstance();
-        userId = auth.getCurrentUser().getUid();
-        if (userId != null) {
-            FirebaseStorage storage = FirebaseStorage.getInstance();
-            StorageReference storageRef = storage.getReference().child("audio").child(userId).child(audioFile.getName());
+        FirebaseUser currentUser = auth.getCurrentUser();
 
-            Uri fileUri = Uri.fromFile(audioFile);
-            UploadTask uploadTask = storageRef.putFile(fileUri);
+        if (currentUser != null) {
+            userId = currentUser.getUid();
 
-            uploadTask.addOnSuccessListener(taskSnapshot -> {
-                Toast.makeText(CallRecorder.this, "Audio file uploaded to Firebase Storage", Toast.LENGTH_SHORT).show();
-            }).addOnFailureListener(e -> {
-                Toast.makeText(CallRecorder.this, "Failed to upload audio file: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-            });
+            if (audioFile.exists() && audioFile.length() > 0) {
+                FirebaseStorage storage = FirebaseStorage.getInstance();
+
+                String uniqueId = UUID.randomUUID().toString();
+                StorageReference storageRef = storage.getReference().child("audio").child(userId).child(uniqueId + ".amr");
+//                StorageReference storageRef = storage.getReference().child("audio").child(userId).child(audioFile.getName());
+
+                Uri fileUri = Uri.fromFile(audioFile);
+                UploadTask uploadTask = storageRef.putFile(fileUri);
+
+                uploadTask.addOnSuccessListener(taskSnapshot -> {
+                    Toast.makeText(CallRecorder.this, "Audio file uploaded to Firebase Storage", Toast.LENGTH_SHORT).show();
+                }).addOnFailureListener(e -> {
+                    Toast.makeText(CallRecorder.this, "Failed to upload audio file: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
+            } else {
+                Log.e("CallRecorder", "Audio file is missing or empty");
+            }
+        } else {
+            Log.e("CallRecorder", "User not authenticated");
         }
     }
-
-//    private byte[] convertAmrToByteArray(File file) {
-//        try {
-//            FileInputStream fileInputStream = new FileInputStream(file);
-//            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-//
-//            byte[] buffer = new byte[1024];
-//            int len;
-//            while ((len = fileInputStream.read(buffer)) != -1) {
-//                byteArrayOutputStream.write(buffer, 0, len);
-//            }
-//
-//            fileInputStream.close();
-//            byteArrayOutputStream.close();
-//
-//            return byteArrayOutputStream.toByteArray();
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//            return null;
-//        }
-//    }
-//
-//    private void sendAudioDataToServer(byte[] audioData) {
-//        if (audioData != null) {
-//            new SendAudioDataTask().execute(audioData);
-//        }
-//    }
-//
-//    private class SendAudioDataTask extends AsyncTask<byte[], Void, Void> {
-//        @Override
-//        protected Void doInBackground(byte[]... params) {
-//            try {
-//                byte[] audioData = params[0];
-//
-//                URL url = new URL("https://scamdetectorserver.onrender.com/formEndpoint");
-//                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-//                connection.setRequestMethod("POST");
-//                connection.setDoOutput(true);
-//
-//                DataOutputStream outputStream = new DataOutputStream(connection.getOutputStream());
-//                outputStream.write(audioData);
-//                outputStream.flush();
-//                outputStream.close();
-//
-//                int responseCode = connection.getResponseCode();
-//
-//                connection.disconnect();
-//            } catch (IOException e) {
-//                e.printStackTrace();
-//            }
-//
-//            return null;
-//        }
-//    }
 
     public abstract class PhoneCallReceiver extends BroadcastReceiver {
 
@@ -155,7 +122,7 @@ public class CallRecorder extends Service {
         public void onReceive(Context context, Intent intent) {
             if (intent.getAction().equals(ACTION_OUT)) {
                 savedNumber = intent.getStringExtra(EXTRA_PHONE_NUMBER);
-            }  else {
+            } else {
                 String stateStr = intent.getStringExtra(TelephonyManager.EXTRA_STATE);
                 savedNumber = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER);
                 int state = 0;
@@ -205,7 +172,7 @@ public class CallRecorder extends Service {
 
                     recorder = new MediaRecorder();
                     recorder.setAudioSamplingRate(8000);
-                    recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+                    recorder.setAudioSource(MediaRecorder.AudioSource.VOICE_COMMUNICATION); //Changed Just Now
                     recorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
                     recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
                     recorder.setOutputFile(sampleDir.getAbsolutePath() + "/" + "Incoming \n" + number + "  \n" + time + "  \n" + " Call.amr");
@@ -227,7 +194,7 @@ public class CallRecorder extends Service {
 
                         recorder = new MediaRecorder();
                         recorder.setAudioSamplingRate(8000);
-                        recorder.setAudioSource(MediaRecorder.AudioSource.VOICE_CALL); //New Changes
+                        recorder.setAudioSource(MediaRecorder.AudioSource.VOICE_COMMUNICATION); //Changed Just Now
                         recorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
                         recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
                         recorder.setOutputFile(sampleDir.getAbsolutePath() + "/" + "Outgoing \n" + savedNumber + "  \n" + time + "  \n" + " Call.amr");
@@ -242,7 +209,7 @@ public class CallRecorder extends Service {
                         recorder.start();
                         recordStarted = true;
 
-                        onOutgoingCallStarted(context, savedNumber );
+                        onOutgoingCallStarted(context, savedNumber);
 
                     } else {
                         isIncoming = true;

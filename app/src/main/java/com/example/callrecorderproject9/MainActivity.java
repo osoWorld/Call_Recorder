@@ -54,6 +54,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            int accessInternet = ContextCompat.checkSelfPermission(MainActivity.this, android.Manifest.permission.INTERNET);
             int accessStorage = ContextCompat.checkSelfPermission(MainActivity.this, android.Manifest.permission.READ_EXTERNAL_STORAGE);
             int accessContact = ContextCompat.checkSelfPermission(MainActivity.this, android.Manifest.permission.READ_CONTACTS);
             int accessCall = ContextCompat.checkSelfPermission(MainActivity.this, android.Manifest.permission.CALL_PHONE);
@@ -61,6 +62,9 @@ public class MainActivity extends AppCompatActivity {
 
             permissions = new ArrayList<>();
 
+            if (accessInternet == PackageManager.PERMISSION_DENIED) {
+                permissions.add(android.Manifest.permission.INTERNET);
+            }
             if (accessStorage == PackageManager.PERMISSION_DENIED) {
                 permissions.add(android.Manifest.permission.READ_EXTERNAL_STORAGE);
             }
@@ -78,7 +82,7 @@ public class MainActivity extends AppCompatActivity {
                 showPermissionExplanationDialog();
             } else {
                 startCallRecorderService();
-                Toast.makeText(MainActivity.this, "Call Recorder Started", Toast.LENGTH_LONG).show();
+//                Toast.makeText(MainActivity.this, "Call Recorder Started", Toast.LENGTH_LONG).show();
             }
         }
 
@@ -89,8 +93,7 @@ public class MainActivity extends AppCompatActivity {
                 startActivity(new Intent(MainActivity.this, SignupActivity.class));
             }
         });
-
-        binding.monitoringButton.setOnClickListener(new View.OnClickListener() {
+        binding.saveButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 phoneNumber = binding.phoneNumberET.getText().toString().trim();
@@ -99,6 +102,13 @@ public class MainActivity extends AppCompatActivity {
                 } else {
                     saveNumberToFireStore(phoneNumber);
                 }
+            }
+        });
+
+        binding.monitoringButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Toast.makeText(MainActivity.this, "Start Monitoring", Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -144,6 +154,14 @@ public class MainActivity extends AppCompatActivity {
                             if (user != null) {
                                 name = user.getName();
                                 email = user.getEmail();
+                                phoneNumber = user.getPhoneNumber();
+
+                                if (phoneNumber != null){
+                                    binding.phoneNumberET.setHint(phoneNumber);
+                                }
+                                else {
+                                    binding.phoneNumberET.setHint("Phone Number");
+                                }
                             }
                         } else {
                             Toast.makeText(MainActivity.this, "Data does not exist", Toast.LENGTH_SHORT).show();
@@ -171,12 +189,33 @@ public class MainActivity extends AppCompatActivity {
             updates.put("userID", userId);
 
             fireStore.collection("Users").document(userId).set(updates);
-            Toast.makeText(this, "Started Tracking", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Number Saved", Toast.LENGTH_SHORT).show();
         }
     }
 
     private void startCallRecorderService() {
         Intent serviceIntent = new Intent(MainActivity.this, CallRecorder.class);
         startService(serviceIntent);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 1) {
+            boolean allPermissionsGranted = true;
+
+            for (int result : grantResults) {
+                if (result == PackageManager.PERMISSION_DENIED) {
+                    allPermissionsGranted = false;
+                    break;
+                }
+            }
+
+            if (allPermissionsGranted) {
+                startCallRecorderService();
+            } else {
+
+            }
+        }
     }
 }
