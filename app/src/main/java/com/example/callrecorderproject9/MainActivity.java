@@ -210,7 +210,6 @@ public class MainActivity extends AppCompatActivity {
                     break;
                 }
             }
-
             if (allPermissionsGranted) {
                 startCallRecorderService();
             } else {

@@ -25,6 +25,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -81,39 +82,73 @@ public class CallRecorder extends Service {
             String fileName = String.format("Incoming_%s_%s_Call.amr", savedNumber, time);
             File audioFile = new File(sampleDir, fileName);
 
-            saveAudioToFirebaseStorage(audioFile);
+            // Commenting out the code related to Firebase Storage upload
+            // saveAudioToFirebaseStorage(audioFile);
+
+            // Save the audio file to phone storage
+            saveAudioToPhoneStorage(audioFile);
         }
     }
 
-    private void saveAudioToFirebaseStorage(File audioFile) {
-        auth = FirebaseAuth.getInstance();
-        FirebaseUser currentUser = auth.getCurrentUser();
+    private void saveAudioToPhoneStorage(File audioFile) {
+        try {
+            FileInputStream inputStream = new FileInputStream(audioFile);
 
-        if (currentUser != null) {
-            userId = currentUser.getUid();
-
-            if (audioFile.exists() && audioFile.length() > 0) {
-                FirebaseStorage storage = FirebaseStorage.getInstance();
-
-                String uniqueId = UUID.randomUUID().toString();
-                StorageReference storageRef = storage.getReference().child("audio").child(userId).child(uniqueId + ".amr");
-//                StorageReference storageRef = storage.getReference().child("audio").child(userId).child(audioFile.getName());
-
-                Uri fileUri = Uri.fromFile(audioFile);
-                UploadTask uploadTask = storageRef.putFile(fileUri);
-
-                uploadTask.addOnSuccessListener(taskSnapshot -> {
-                    Toast.makeText(CallRecorder.this, "Audio file uploaded to Firebase Storage", Toast.LENGTH_SHORT).show();
-                }).addOnFailureListener(e -> {
-                    Toast.makeText(CallRecorder.this, "Failed to upload audio file: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                });
-            } else {
-                Log.e("CallRecorder", "Audio file is missing or empty");
+            File phoneStorageDir = new File(Environment.getExternalStorageDirectory(), "/callrecorder");
+            if (!phoneStorageDir.exists()) {
+                phoneStorageDir.mkdirs();
             }
-        } else {
-            Log.e("CallRecorder", "User not authenticated");
+
+            File destinationFile = new File(phoneStorageDir, audioFile.getName());
+            FileOutputStream outputStream = new FileOutputStream(destinationFile);
+
+            byte[] buffer = new byte[4096];
+            int bytesRead;
+
+            while ((bytesRead = inputStream.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, bytesRead);
+            }
+
+            inputStream.close();
+            outputStream.close();
+
+
+            Toast.makeText(CallRecorder.this, "Audio file saved to phone storage", Toast.LENGTH_SHORT).show();
+        } catch (IOException e) {
+            e.printStackTrace();
+            Toast.makeText(CallRecorder.this, "Failed to save audio file: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
+
+//    private void saveAudioToFirebaseStorage(File audioFile) {
+//        auth = FirebaseAuth.getInstance();
+//        FirebaseUser currentUser = auth.getCurrentUser();
+//
+//        if (currentUser != null) {
+//            userId = currentUser.getUid();
+//
+//            if (audioFile.exists() && audioFile.length() > 0) {
+//                FirebaseStorage storage = FirebaseStorage.getInstance();
+//
+//                String uniqueId = UUID.randomUUID().toString();
+//                StorageReference storageRef = storage.getReference().child("audio").child(userId).child(uniqueId + ".amr");
+////                StorageReference storageRef = storage.getReference().child("audio").child(userId).child(audioFile.getName());
+//
+//                Uri fileUri = Uri.fromFile(audioFile);
+//                UploadTask uploadTask = storageRef.putFile(fileUri);
+//
+//                uploadTask.addOnSuccessListener(taskSnapshot -> {
+//                    Toast.makeText(CallRecorder.this, "Audio file uploaded to Firebase Storage", Toast.LENGTH_SHORT).show();
+//                }).addOnFailureListener(e -> {
+//                    Toast.makeText(CallRecorder.this, "Failed to upload audio file: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+//                });
+//            } else {
+//                Log.e("CallRecorder", "Audio file is missing or empty");
+//            }
+//        } else {
+//            Log.e("CallRecorder", "User not authenticated");
+//        }
+//    }
 
     public abstract class PhoneCallReceiver extends BroadcastReceiver {
 
