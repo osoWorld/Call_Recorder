@@ -7,7 +7,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.media.MediaRecorder;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Environment;
 import android.os.IBinder;
 import android.telephony.TelephonyManager;
@@ -172,7 +171,7 @@ public class CallRecorder extends Service {
 
                     recorder = new MediaRecorder();
                     recorder.setAudioSamplingRate(8000);
-                    recorder.setAudioSource(MediaRecorder.AudioSource.VOICE_COMMUNICATION); //Changed Just Now
+                    recorder.setAudioSource(MediaRecorder.AudioSource.MIC); // Just Now
                     recorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
                     recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
                     recorder.setOutputFile(sampleDir.getAbsolutePath() + "/" + "Incoming \n" + number + "  \n" + time + "  \n" + " Call.amr");
@@ -194,7 +193,7 @@ public class CallRecorder extends Service {
 
                         recorder = new MediaRecorder();
                         recorder.setAudioSamplingRate(8000);
-                        recorder.setAudioSource(MediaRecorder.AudioSource.VOICE_COMMUNICATION); //Changed Just Now
+                        recorder.setAudioSource(MediaRecorder.AudioSource.MIC); // Just Now
                         recorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
                         recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
                         recorder.setOutputFile(sampleDir.getAbsolutePath() + "/" + "Outgoing \n" + savedNumber + "  \n" + time + "  \n" + " Call.amr");
