@@ -59,6 +59,7 @@ public class MainActivity extends AppCompatActivity {
             int accessContact = ContextCompat.checkSelfPermission(MainActivity.this, android.Manifest.permission.READ_CONTACTS);
             int accessCall = ContextCompat.checkSelfPermission(MainActivity.this, android.Manifest.permission.CALL_PHONE);
             int accessAudio = ContextCompat.checkSelfPermission(MainActivity.this, android.Manifest.permission.RECORD_AUDIO);
+            int accessPhoneState = ContextCompat.checkSelfPermission(MainActivity.this, android.Manifest.permission.READ_PHONE_STATE);
 
             permissions = new ArrayList<>();
 
@@ -77,12 +78,14 @@ public class MainActivity extends AppCompatActivity {
             if (accessAudio == PackageManager.PERMISSION_DENIED) {
                 permissions.add(android.Manifest.permission.RECORD_AUDIO);
             }
+            if (accessPhoneState == PackageManager.PERMISSION_DENIED) {
+                permissions.add(android.Manifest.permission.READ_PHONE_STATE);
+            }
 
             if (permissions.size() > 0) {
                 showPermissionExplanationDialog();
             } else {
                 startCallRecorderService();
-//                Toast.makeText(MainActivity.this, "Call Recorder Started", Toast.LENGTH_LONG).show();
             }
         }
 
