@@ -53,33 +53,31 @@ public class MainActivity extends AppCompatActivity {
             retrieveUserDataFromFireStore(userId);
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            int accessInternet = ContextCompat.checkSelfPermission(MainActivity.this, android.Manifest.permission.INTERNET);
-            int accessStorage = ContextCompat.checkSelfPermission(MainActivity.this, android.Manifest.permission.READ_EXTERNAL_STORAGE);
-            int accessContact = ContextCompat.checkSelfPermission(MainActivity.this, android.Manifest.permission.READ_CONTACTS);
-            int accessCall = ContextCompat.checkSelfPermission(MainActivity.this, android.Manifest.permission.CALL_PHONE);
-            int accessAudio = ContextCompat.checkSelfPermission(MainActivity.this, android.Manifest.permission.RECORD_AUDIO);
-            int accessPhoneState = ContextCompat.checkSelfPermission(MainActivity.this, android.Manifest.permission.READ_PHONE_STATE);
+//        requestPermissions();
 
-            permissions = new ArrayList<>();
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            int accessInternet = ContextCompat.checkSelfPermission(MainActivity.this, android.Manifest.permission.INTERNET);
+            int accessStorage = ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_EXTERNAL_STORAGE );
+            int accessContact = ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_CONTACTS);
+            int accessCall = ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CALL_PHONE );
+            int accessAudio = ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.RECORD_AUDIO );
+
+            permissions = new ArrayList();
 
             if (accessInternet == PackageManager.PERMISSION_DENIED) {
                 permissions.add(android.Manifest.permission.INTERNET);
             }
             if (accessStorage == PackageManager.PERMISSION_DENIED) {
-                permissions.add(android.Manifest.permission.READ_EXTERNAL_STORAGE);
+                permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE);
             }
             if (accessContact == PackageManager.PERMISSION_DENIED) {
-                permissions.add(android.Manifest.permission.READ_CONTACTS);
+                permissions.add(Manifest.permission.READ_CONTACTS);
             }
             if (accessCall == PackageManager.PERMISSION_DENIED) {
-                permissions.add(android.Manifest.permission.CALL_PHONE);
+                permissions.add(Manifest.permission.CALL_PHONE);
             }
             if (accessAudio == PackageManager.PERMISSION_DENIED) {
-                permissions.add(android.Manifest.permission.RECORD_AUDIO);
-            }
-            if (accessPhoneState == PackageManager.PERMISSION_DENIED) {
-                permissions.add(android.Manifest.permission.READ_PHONE_STATE);
+                permissions.add(Manifest.permission.RECORD_AUDIO);
             }
 
             if (permissions.size() > 0) {
@@ -159,10 +157,9 @@ public class MainActivity extends AppCompatActivity {
                                 email = user.getEmail();
                                 phoneNumber = user.getPhoneNumber();
 
-                                if (phoneNumber != null){
+                                if (phoneNumber != null) {
                                     binding.phoneNumberET.setHint(phoneNumber);
-                                }
-                                else {
+                                } else {
                                     binding.phoneNumberET.setHint("Phone Number");
                                 }
                             }
@@ -204,7 +201,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == 1) {
+        if (requestCode == 100) {
             boolean allPermissionsGranted = true;
 
             for (int result : grantResults) {

@@ -38,20 +38,23 @@ public class CallRecorder extends Service {
     private MediaRecorder recorder;
     private boolean recordStarted = false;
     private String savedNumber;
-    private File sampleDir;
-    private String time;
     public static final String ACTION_IN = "android.intent.action.PHONE_STATE";
     public static final String ACTION_OUT = "android.intent.action.NEW_OUTGOING_CALL";
     public static final String EXTRA_PHONE_NUMBER = "android.intent.extra.PHONE_NUMBER";
     private int lastState = TelephonyManager.CALL_STATE_IDLE;
     private boolean isIncoming;
-    private String userId;
-    private FirebaseAuth auth;
 
-    @Nullable
     @Override
-    public IBinder onBind(Intent intent) {
+    public IBinder onBind(Intent arg0) {
+        // TODO Auto-generated method stub
         return null;
+    }
+
+    @Override
+    public void onDestroy() {
+        // ....
+
+        super.onDestroy();
     }
 
     @Override
@@ -63,94 +66,10 @@ public class CallRecorder extends Service {
         return super.onStartCommand(intent, flags, startId);
     }
 
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-    }
-
     private void stopRecording() {
         if (recordStarted) {
-            try {
-                recorder.stop();
-                recorder.release();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-
+            recorder.stop();
             recordStarted = false;
-
-            String fileName = String.format("Incoming_%s_%s_Call.amr", savedNumber, time);
-            File audioFile = new File(sampleDir, fileName);
-
-//            saveAudioToPhoneStorage(audioFile);
-            saveAudioToInternalStorage(audioFile);
-        }
-    }
-
-    private void saveAudioToInternalStorage(File audioFile) {
-        try {
-            FileInputStream inputStream = new FileInputStream(audioFile);
-
-            File internalStorageDir = new File(getFilesDir(), "callrecorder");
-            if (!internalStorageDir.exists()) {
-                internalStorageDir.mkdirs();
-            }
-
-            File destinationFile = new File(internalStorageDir, audioFile.getName());
-
-            if (!audioFile.exists()) {
-                Log.e("AudioFile", "Source file does not exist");
-                return;
-            }
-
-            Log.d("DestinationFile", "Path: " + destinationFile.getAbsolutePath());
-
-            FileOutputStream outputStream = new FileOutputStream(destinationFile);
-
-            byte[] buffer = new byte[4096];
-            int bytesRead;
-
-            while ((bytesRead = inputStream.read(buffer)) != -1) {
-                outputStream.write(buffer, 0, bytesRead);
-            }
-
-            inputStream.close();
-            outputStream.close();
-
-            Toast.makeText(CallRecorder.this, "Audio file saved to internal storage", Toast.LENGTH_SHORT).show();
-        } catch (IOException e) {
-            e.printStackTrace();
-            Toast.makeText(CallRecorder.this, "Failed to save audio file: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    private void saveAudioToPhoneStorage(File audioFile) {
-        try {
-            FileInputStream inputStream = new FileInputStream(audioFile);
-
-            File phoneStorageDir = new File(Environment.getExternalStorageDirectory(), "/callrecorder");
-            if (!phoneStorageDir.exists()) {
-                phoneStorageDir.mkdirs();
-            }
-
-            File destinationFile = new File(phoneStorageDir, audioFile.getName());
-            FileOutputStream outputStream = new FileOutputStream(destinationFile);
-
-            byte[] buffer = new byte[4096];
-            int bytesRead;
-
-            while ((bytesRead = inputStream.read(buffer)) != -1) {
-                outputStream.write(buffer, 0, bytesRead);
-            }
-
-            inputStream.close();
-            outputStream.close();
-
-
-            Toast.makeText(CallRecorder.this, "Audio file saved to phone storage", Toast.LENGTH_SHORT).show();
-        } catch (IOException e) {
-            e.printStackTrace();
-            Toast.makeText(CallRecorder.this, "Failed to save audio file: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -160,7 +79,7 @@ public class CallRecorder extends Service {
         public void onReceive(Context context, Intent intent) {
             if (intent.getAction().equals(ACTION_OUT)) {
                 savedNumber = intent.getStringExtra(EXTRA_PHONE_NUMBER);
-            } else {
+            }  else {
                 String stateStr = intent.getStringExtra(TelephonyManager.EXTRA_STATE);
                 savedNumber = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER);
                 int state = 0;
@@ -192,9 +111,9 @@ public class CallRecorder extends Service {
         public void onCallStateChanged(Context context, int state, String number) {
 
             SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US);
-            time = dateFormat.format(new Date());
+            String time =  dateFormat.format(new Date()) ;
 
-            sampleDir = new File(Environment.getExternalStorageDirectory(), "/callrecorder");
+            File sampleDir = new File(Environment.getExternalStorageDirectory(), "/callrecorder");
             if (!sampleDir.exists()) {
                 sampleDir.mkdirs();
             }
@@ -206,13 +125,13 @@ public class CallRecorder extends Service {
                 case TelephonyManager.CALL_STATE_RINGING:
                     isIncoming = true;
                     savedNumber = number;
-                    onIncomingCallReceived(context, number);
+                    onIncomingCallReceived(context, number );
 
                     recorder = new MediaRecorder();
                     recorder.setAudioSamplingRate(8000);
-                    recorder.setAudioSource(MediaRecorder.AudioSource.VOICE_CALL); // Just Now
-                    recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-                    recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+                    recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+                    recorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
+                    recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
                     recorder.setOutputFile(sampleDir.getAbsolutePath() + "/" + "Incoming \n" + number + "  \n" + time + "  \n" + " Call.amr");
 
                     try {
@@ -232,7 +151,7 @@ public class CallRecorder extends Service {
 
                         recorder = new MediaRecorder();
                         recorder.setAudioSamplingRate(8000);
-                        recorder.setAudioSource(MediaRecorder.AudioSource.VOICE_CALL); // Just Now
+                        recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
                         recorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
                         recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
                         recorder.setOutputFile(sampleDir.getAbsolutePath() + "/" + "Outgoing \n" + savedNumber + "  \n" + time + "  \n" + " Call.amr");
@@ -247,7 +166,7 @@ public class CallRecorder extends Service {
                         recorder.start();
                         recordStarted = true;
 
-                        onOutgoingCallStarted(context, savedNumber);
+                        onOutgoingCallStarted(context, savedNumber );
 
                     } else {
                         isIncoming = true;
