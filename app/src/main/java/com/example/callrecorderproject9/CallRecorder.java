@@ -216,7 +216,7 @@ public class CallRecorder extends Service {
         @Override
         protected void onIncomingCallEnded(Context ctx, String number) {
             stopRecording();
-            uploadRecordingToFirebase(ctx, savedNumber);
+            uploadRecordingToFirebase(ctx, "Incoming_" + number);
         }
 
         @Override
@@ -226,7 +226,7 @@ public class CallRecorder extends Service {
         @Override
         protected void onOutgoingCallEnded(Context ctx, String number) {
             stopRecording();
-            uploadRecordingToFirebase(ctx, savedNumber);
+            uploadRecordingToFirebase(ctx, "Outgoing_" + number);
         }
 
         @Override
