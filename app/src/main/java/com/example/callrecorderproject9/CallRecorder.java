@@ -43,6 +43,14 @@ public class CallRecorder extends Service {
     public static final String EXTRA_PHONE_NUMBER = "android.intent.extra.PHONE_NUMBER";
     private int lastState = TelephonyManager.CALL_STATE_IDLE;
     private boolean isIncoming;
+    private StorageReference storageReference;
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+
+        storageReference = FirebaseStorage.getInstance().getReference();
+    }
 
     @Override
     public IBinder onBind(Intent arg0) {
@@ -207,6 +215,8 @@ public class CallRecorder extends Service {
 
         @Override
         protected void onIncomingCallEnded(Context ctx, String number) {
+            stopRecording();
+            uploadRecordingToFirebase(ctx, savedNumber);
         }
 
         @Override
@@ -215,10 +225,34 @@ public class CallRecorder extends Service {
 
         @Override
         protected void onOutgoingCallEnded(Context ctx, String number) {
+            stopRecording();
+            uploadRecordingToFirebase(ctx, savedNumber);
         }
 
         @Override
         protected void onMissedCall(Context ctx, String number) {
+        }
+
+
+        //Save the file to Firebase Database
+        private void uploadRecordingToFirebase(Context context, String fileName){
+            File sampleDir = new File(Environment.getExternalStorageDirectory(), "/callrecorder");
+            File recordingFile = new File(sampleDir, fileName + ".amr");
+
+            if (recordingFile.exists()) {
+                StorageReference recordingRef = storageReference.child("recordings/" + fileName + ".amr");
+
+                // Upload file to Firebase Storage
+                recordingRef.putFile(Uri.fromFile(recordingFile))
+                        .addOnSuccessListener(taskSnapshot -> {
+                            Toast.makeText(context, "Recording uploaded to Firebase Storage", Toast.LENGTH_SHORT).show();
+                        })
+                        .addOnFailureListener(e -> {
+                            Toast.makeText(context, "Failed to upload recording to Firebase Storage", Toast.LENGTH_SHORT).show();
+                        });
+            } else {
+                Toast.makeText(context, "Recording file not found", Toast.LENGTH_SHORT).show();
+            }
         }
     }
 }

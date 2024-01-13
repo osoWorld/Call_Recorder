@@ -53,8 +53,6 @@ public class MainActivity extends AppCompatActivity {
             retrieveUserDataFromFireStore(userId);
         }
 
-//        requestPermissions();
-
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             int accessInternet = ContextCompat.checkSelfPermission(MainActivity.this, android.Manifest.permission.INTERNET);
             int accessStorage = ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_EXTERNAL_STORAGE );
