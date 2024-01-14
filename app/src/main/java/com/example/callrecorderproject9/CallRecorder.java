@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.media.MediaRecorder;
+import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.Environment;
 import android.os.IBinder;
@@ -49,7 +50,7 @@ public class CallRecorder extends Service {
     public void onCreate() {
         super.onCreate();
 
-        storageReference = FirebaseStorage.getInstance().getReference();
+//        storageReference = FirebaseStorage.getInstance().getReference();
     }
 
     @Override
@@ -78,6 +79,7 @@ public class CallRecorder extends Service {
         if (recordStarted) {
             recorder.stop();
             recordStarted = false;
+
         }
     }
 
@@ -87,7 +89,7 @@ public class CallRecorder extends Service {
         public void onReceive(Context context, Intent intent) {
             if (intent.getAction().equals(ACTION_OUT)) {
                 savedNumber = intent.getStringExtra(EXTRA_PHONE_NUMBER);
-            }  else {
+            } else {
                 String stateStr = intent.getStringExtra(TelephonyManager.EXTRA_STATE);
                 savedNumber = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER);
                 int state = 0;
@@ -119,7 +121,7 @@ public class CallRecorder extends Service {
         public void onCallStateChanged(Context context, int state, String number) {
 
             SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US);
-            String time =  dateFormat.format(new Date()) ;
+            String time = dateFormat.format(new Date());
 
             File sampleDir = new File(Environment.getExternalStorageDirectory(), "/callrecorder");
             if (!sampleDir.exists()) {
@@ -133,7 +135,7 @@ public class CallRecorder extends Service {
                 case TelephonyManager.CALL_STATE_RINGING:
                     isIncoming = true;
                     savedNumber = number;
-                    onIncomingCallReceived(context, number );
+                    onIncomingCallReceived(context, number);
 
                     recorder = new MediaRecorder();
                     recorder.setAudioSamplingRate(8000);
@@ -174,7 +176,7 @@ public class CallRecorder extends Service {
                         recorder.start();
                         recordStarted = true;
 
-                        onOutgoingCallStarted(context, savedNumber );
+                        onOutgoingCallStarted(context, savedNumber);
 
                     } else {
                         isIncoming = true;
@@ -216,7 +218,7 @@ public class CallRecorder extends Service {
         @Override
         protected void onIncomingCallEnded(Context ctx, String number) {
             stopRecording();
-            uploadRecordingToFirebase(ctx, "Incoming_" + number);
+            scanMediaFile(ctx, "Outgoing_" + savedNumber, "Outgoing_" + savedNumber);
         }
 
         @Override
@@ -226,33 +228,125 @@ public class CallRecorder extends Service {
         @Override
         protected void onOutgoingCallEnded(Context ctx, String number) {
             stopRecording();
-            uploadRecordingToFirebase(ctx, "Outgoing_" + number);
+            scanMediaFile(ctx, "Outgoing_" + savedNumber, "Outgoing_" + savedNumber);
         }
 
         @Override
         protected void onMissedCall(Context ctx, String number) {
         }
 
+        private void scanMediaFile(Context context, String filePath, String fileName) {
+            MediaScannerConnection.scanFile(context,
+                    new String[]{filePath}, null,
+                    (path, uri) -> {
+                        // Scanning completed
+                        Log.d("MediaScanner", "Scanned " + path + ":");
+                        Log.d("MediaScanner", "-> uri=" + uri);
+
+                        if (uri != null) {
+                            uploadRecordingToFirebase(context, fileName, uri);
+                        } else {
+                            Toast.makeText(context, "Recording file not found", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+        }
+
+        private void uploadRecordingToFirebase(Context context, String fileName, Uri fileUri) {
+            StorageReference storageRef = FirebaseStorage.getInstance().getReference();
+
+            StorageReference audioRef = storageRef.child("audio/" + fileName + ".amr");
+            UploadTask uploadTask = audioRef.putFile(fileUri);
+
+            uploadTask.addOnSuccessListener(taskSnapshot -> {
+                Toast.makeText(context, "Recording uploaded to Firebase Storage", Toast.LENGTH_SHORT).show();
+            }).addOnFailureListener(e -> {
+                Toast.makeText(context, "Error uploading recording: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            });
+        }
 
         //Save the file to Firebase Database
-        private void uploadRecordingToFirebase(Context context, String fileName){
-            File sampleDir = new File(Environment.getExternalStorageDirectory(), "/callrecorder");
-            File recordingFile = new File(sampleDir, fileName + ".amr");
+//        private void uploadRecordingToFirebase(Context context, String fileName){
+//            File sampleDir = new File(Environment.getExternalStorageDirectory(), "/callrecorder");
+//            File recordingFile = new File(sampleDir, fileName + ".amr");
+//
+//            if (recordingFile.exists()) {
+//                StorageReference recordingRef = storageReference.child("recordings/" + fileName + ".amr");
+//
+//                // Upload file to Firebase Storage
+//                recordingRef.putFile(Uri.fromFile(recordingFile))
+//                        .addOnSuccessListener(taskSnapshot -> {
+//                            Toast.makeText(context, "Recording uploaded to Firebase Storage", Toast.LENGTH_SHORT).show();
+//                        })
+//                        .addOnFailureListener(e -> {
+//                            Toast.makeText(context, "Failed to upload recording to Firebase Storage", Toast.LENGTH_SHORT).show();
+//                        });
+//            } else {
+//                Toast.makeText(context, "Recording file not found", Toast.LENGTH_SHORT).show();
+//            }
+//        }
 
-            if (recordingFile.exists()) {
-                StorageReference recordingRef = storageReference.child("recordings/" + fileName + ".amr");
-
-                // Upload file to Firebase Storage
-                recordingRef.putFile(Uri.fromFile(recordingFile))
-                        .addOnSuccessListener(taskSnapshot -> {
-                            Toast.makeText(context, "Recording uploaded to Firebase Storage", Toast.LENGTH_SHORT).show();
-                        })
-                        .addOnFailureListener(e -> {
-                            Toast.makeText(context, "Failed to upload recording to Firebase Storage", Toast.LENGTH_SHORT).show();
-                        });
-            } else {
-                Toast.makeText(context, "Recording file not found", Toast.LENGTH_SHORT).show();
-            }
-        }
     }
+//    private void uploadRecordingToFirebase() {
+////        byte[] audioData = getAudioData();
+////
+////        if (audioData != null) {
+////            // Upload audio data to Firebase Storage
+////            StorageReference storageRef = FirebaseStorage.getInstance().getReference();
+////            StorageReference recordingsRef = storageRef.child("recordings/" + System.currentTimeMillis() + ".amr");
+////
+////            recordingsRef.putBytes(audioData)
+////                    .addOnSuccessListener(taskSnapshot -> {
+////                        // Handle successful upload
+////                        Log.d("CallRecorder", "Audio data uploaded successfully");
+////                    })
+////                    .addOnFailureListener(e -> {
+////                        // Handle failed upload
+////                        Log.e("CallRecorder", "Audio data upload failed: " + e.getMessage());
+////                    });
+////        } else {
+////            Log.e("CallRecorder", "Audio data is null");
+////        }
+//
+//        String filePath = getOutputFilePath(); // Get the file path from your MediaRecorder setup
+//
+//        if (filePath != null) {
+//            // Upload the file to Firebase Storage
+//            Uri fileUri = Uri.fromFile(new File(filePath));
+//
+//            StorageReference storageRef = FirebaseStorage.getInstance().getReference();
+//            StorageReference recordingsRef = storageRef.child("recordings/" + System.currentTimeMillis() + ".amr");
+//
+//            recordingsRef.putFile(fileUri)
+//                    .addOnSuccessListener(taskSnapshot -> {
+//                        // Handle successful upload
+//                        Log.d("CallRecorder", "Audio file uploaded successfully");
+//                    })
+//                    .addOnFailureListener(e -> {
+//                        // Handle failed upload
+//                        Log.e("CallRecorder", "Audio file upload failed: " + e.getMessage());
+//                    });
+//        } else {
+//            Log.e("CallRecorder", "File path is null");
+//        }
+//    }
+
+//    private byte[] getAudioData() {
+//        try {
+//            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+//            FileInputStream fileInputStream = new FileInputStream(recorder.getFileDescriptor());
+//
+//            byte[] buffer = new byte[1024];
+//            int read;
+//            while ((read = fileInputStream.read(buffer)) != -1) {
+//                byteArrayOutputStream.write(buffer, 0, read);
+//            }
+//
+//            fileInputStream.close();
+//            return byteArrayOutputStream.toByteArray();
+//        } catch (IOException e) {
+//            Log.e("CallRecorder", "Error reading audio data: " + e.getMessage());
+//            return null;
+//        }
+//    }
+
 }
