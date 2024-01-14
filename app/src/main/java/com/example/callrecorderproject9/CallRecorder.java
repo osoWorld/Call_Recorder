@@ -246,7 +246,7 @@ public class CallRecorder extends Service {
                         if (uri != null) {
                             uploadRecordingToFirebase(context, fileName, uri);
                         } else {
-                            Toast.makeText(context, "Recording file not found", Toast.LENGTH_SHORT).show();
+//
                         }
                     });
         }
