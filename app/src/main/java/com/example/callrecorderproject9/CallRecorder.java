@@ -178,12 +178,13 @@ public class CallRecorder extends Service {
 
                     try {
                         recorder.prepare();
+                        recorder.start();
                     } catch (IllegalStateException e) {
                         e.printStackTrace();
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
-                    recorder.start();
+
                     recordStarted = true;
 
                     break;
@@ -200,12 +201,13 @@ public class CallRecorder extends Service {
 
                         try {
                             recorder.prepare();
+                            recorder.start();
                         } catch (IllegalStateException e) {
                             e.printStackTrace();
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
-                        recorder.start();
+
                         recordStarted = true;
 
                         onOutgoingCallStarted(context, savedNumber);
