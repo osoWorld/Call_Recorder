@@ -62,7 +62,9 @@ public class CallRecorder extends Service {
 
     @Override
     public void onDestroy() {
-        // ....
+        if (recorder != null) {
+            stopRecording();
+        }
 
         super.onDestroy();
     }
@@ -77,11 +79,10 @@ public class CallRecorder extends Service {
     }
 
     private void stopRecording() {
-        if (recordStarted) {
+        if (recordStarted && recorder != null) {
             recorder.stop();
             recorder.release();
             recordStarted = false;
-
         }
     }
 
