@@ -1,4 +1,4 @@
-package com.example.callrecorderproject9.ModelClasses;
+package com.example.callrecorderproject9;
 
 public class RegistrationModel {
     private String name, email, phoneNumber,userID;

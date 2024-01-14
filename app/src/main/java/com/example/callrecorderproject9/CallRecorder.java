@@ -39,6 +39,7 @@ public class CallRecorder extends Service {
     private MediaRecorder recorder;
     private boolean recordStarted = false;
     private String savedNumber;
+    private File recordedFile;
     public static final String ACTION_IN = "android.intent.action.PHONE_STATE";
     public static final String ACTION_OUT = "android.intent.action.NEW_OUTGOING_CALL";
     public static final String EXTRA_PHONE_NUMBER = "android.intent.extra.PHONE_NUMBER";
@@ -78,11 +79,40 @@ public class CallRecorder extends Service {
     private void stopRecording() {
         if (recordStarted) {
             recorder.stop();
+            recorder.release();
             recordStarted = false;
 
         }
     }
 
+    //Updated Code
+    private File createAudioFile() {
+        String state = Environment.getExternalStorageState();
+        if (!Environment.MEDIA_MOUNTED.equals(state)) {
+            return null;
+        }
+
+        File rootDir = new File(Environment.getExternalStorageDirectory(), "callrecorder");
+        if (!rootDir.exists()) {
+            if (!rootDir.mkdirs()) {
+                return null;
+            }
+        }
+
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
+        String fileName = "recording_" + timeStamp + ".amr";
+
+        File outputFile = new File(rootDir, fileName);
+
+        int count = 1;
+        while (outputFile.exists()) {
+            fileName = "recording_" + timeStamp + "_" + count + ".amr";
+            outputFile = new File(rootDir, fileName);
+            count++;
+        }
+
+        return outputFile;
+    }
     public abstract class PhoneCallReceiver extends BroadcastReceiver {
 
         @Override
@@ -123,10 +153,12 @@ public class CallRecorder extends Service {
             SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US);
             String time = dateFormat.format(new Date());
 
-            File sampleDir = new File(Environment.getExternalStorageDirectory(), "/callrecorder");
-            if (!sampleDir.exists()) {
-                sampleDir.mkdirs();
-            }
+            recordedFile = createAudioFile(); // Create a new recording file
+
+//            File sampleDir = new File(Environment.getExternalStorageDirectory(), "/callrecorder");
+//            if (!sampleDir.exists()) {
+//                sampleDir.mkdirs();
+//            }
 
             if (lastState == state) {
                 return;
@@ -142,7 +174,7 @@ public class CallRecorder extends Service {
                     recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
                     recorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
                     recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
-                    recorder.setOutputFile(sampleDir.getAbsolutePath() + "/" + "Incoming \n" + number + "  \n" + time + "  \n" + " Call.amr");
+                    recorder.setOutputFile(recordedFile.getAbsolutePath() + "/" + "Incoming \n" + number + "  \n" + time + "  \n" + " Call.amr");
 
                     try {
                         recorder.prepare();
@@ -164,7 +196,7 @@ public class CallRecorder extends Service {
                         recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
                         recorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
                         recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
-                        recorder.setOutputFile(sampleDir.getAbsolutePath() + "/" + "Outgoing \n" + savedNumber + "  \n" + time + "  \n" + " Call.amr");
+                        recorder.setOutputFile(recordedFile.getAbsolutePath() + "/" + "Outgoing \n" + savedNumber + "  \n" + time + "  \n" + " Call.amr");
 
                         try {
                             recorder.prepare();
@@ -218,7 +250,7 @@ public class CallRecorder extends Service {
         @Override
         protected void onIncomingCallEnded(Context ctx, String number) {
             stopRecording();
-            scanMediaFile(ctx, "Outgoing_" + savedNumber, "Outgoing_" + savedNumber);
+            scanMediaFile(ctx, recordedFile);
         }
 
         @Override
@@ -228,25 +260,25 @@ public class CallRecorder extends Service {
         @Override
         protected void onOutgoingCallEnded(Context ctx, String number) {
             stopRecording();
-            scanMediaFile(ctx, "Outgoing_" + savedNumber, "Outgoing_" + savedNumber);
+            scanMediaFile(ctx, recordedFile);
         }
 
         @Override
         protected void onMissedCall(Context ctx, String number) {
         }
 
-        private void scanMediaFile(Context context, String filePath, String fileName) {
+        private void scanMediaFile(Context context, File file) {
             MediaScannerConnection.scanFile(context,
-                    new String[]{filePath}, null,
+                    new String[]{file.getAbsolutePath()}, null,
                     (path, uri) -> {
                         // Scanning completed
                         Log.d("MediaScanner", "Scanned " + path + ":");
                         Log.d("MediaScanner", "-> uri=" + uri);
 
                         if (uri != null) {
-                            uploadRecordingToFirebase(context, fileName, uri);
+                            uploadRecordingToFirebase(context, file.getName(), uri);
                         } else {
-//
+
                         }
                     });
         }
@@ -254,7 +286,7 @@ public class CallRecorder extends Service {
         private void uploadRecordingToFirebase(Context context, String fileName, Uri fileUri) {
             StorageReference storageRef = FirebaseStorage.getInstance().getReference();
 
-            StorageReference audioRef = storageRef.child("audio/" + fileName + ".amr");
+            StorageReference audioRef = storageRef.child("audio/" + fileName);
             UploadTask uploadTask = audioRef.putFile(fileUri);
 
             uploadTask.addOnSuccessListener(taskSnapshot -> {
