@@ -5,4 +5,5 @@
 
     <color name="Text_Default_Color">#808080</color>
     <color name="hintColor">#C4C4C4</color>
+    <color name="redColor">#E14949</color>
 </resources>

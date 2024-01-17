@@ -1,6 +1,7 @@
 package com.example.callrecorderproject9;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -10,8 +11,11 @@ import android.Manifest;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.DocumentsContract;
 import android.view.View;
 import android.widget.Toast;
 
@@ -22,7 +26,11 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.StorageReference;
 
+import java.io.File;
+import java.io.FilenameFilter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -36,6 +44,7 @@ public class MainActivity extends AppCompatActivity {
     private FirebaseAuth auth;
     private String name, email;
     private RegistrationModel user;
+    private static final int FILE_PICKER_REQUEST = 23;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -51,12 +60,13 @@ public class MainActivity extends AppCompatActivity {
             retrieveUserDataFromFireStore(userId);
         }
 
-        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             int accessInternet = ContextCompat.checkSelfPermission(MainActivity.this, android.Manifest.permission.INTERNET);
-            int accessStorage = ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_EXTERNAL_STORAGE );
+            int accessStorage = ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_EXTERNAL_STORAGE);
             int accessContact = ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_CONTACTS);
-            int accessCall = ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CALL_PHONE );
-            int accessAudio = ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.RECORD_AUDIO );
+            int accessCall = ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CALL_PHONE);
+            int accessAudio = ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.RECORD_AUDIO);
+            int writeAudio = ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE);
 
             permissions = new ArrayList();
 
@@ -75,6 +85,9 @@ public class MainActivity extends AppCompatActivity {
             if (accessAudio == PackageManager.PERMISSION_DENIED) {
                 permissions.add(Manifest.permission.RECORD_AUDIO);
             }
+            if (writeAudio == PackageManager.PERMISSION_DENIED) {
+                permissions.add(android.Manifest.permission.WRITE_EXTERNAL_STORAGE);
+            }
 
             if (permissions.size() > 0) {
                 showPermissionExplanationDialog();
@@ -82,6 +95,13 @@ public class MainActivity extends AppCompatActivity {
                 startCallRecorderService();
             }
         }
+
+        binding.seeButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showAudioFilePicker();
+            }
+        });
 
         binding.logoutButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -105,7 +125,12 @@ public class MainActivity extends AppCompatActivity {
         binding.monitoringButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Toast.makeText(MainActivity.this, "Start Monitoring", Toast.LENGTH_SHORT).show();
+                phoneNumber = binding.phoneNumberET.getText().toString().trim();
+                if (phoneNumber.isEmpty()) {
+                    Toast.makeText(MainActivity.this, "Field's can't be empty", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(MainActivity.this, "Started Monitoring", Toast.LENGTH_SHORT).show();
+                }
             }
         });
     }
@@ -212,5 +237,90 @@ public class MainActivity extends AppCompatActivity {
 
             }
         }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == FILE_PICKER_REQUEST && resultCode == RESULT_OK && data != null) {
+            Uri selectedFileUri = data.getData();
+            if (selectedFileUri != null) {
+                uploadFileToFirebaseStorage(selectedFileUri);
+            }
+        }
+    }
+
+    private void uploadFileToFirebaseStorage(Uri fileUri) {
+        binding.progressBarUpload.setVisibility(View.VISIBLE);
+
+        StorageReference storageRef = FirebaseStorage.getInstance().getReference().child("call_recordings").child(userId);
+        String fileName = "audio_" + System.currentTimeMillis() + ".amr";
+        StorageReference fileRef = storageRef.child(fileName);
+
+        fileRef.putFile(fileUri)
+                .addOnSuccessListener(taskSnapshot -> {
+                    binding.progressBarUpload.setVisibility(View.GONE);
+                    Toast.makeText(MainActivity.this, "File uploaded to Firebase Storage", Toast.LENGTH_SHORT).show();
+                })
+                .addOnFailureListener(e -> {
+                    binding.progressBarUpload.setVisibility(View.GONE);
+                    Toast.makeText(MainActivity.this, "File upload failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    //New go
+
+    private void showAudioFilePicker() {
+        File audioDirectory = new File(Environment.getExternalStorageDirectory(), "/callrecorder");
+        File[] audioFiles = audioDirectory.listFiles(new FilenameFilter() {
+            @Override
+            public boolean accept(File dir, String name) {
+                return name.toLowerCase().endsWith(".amr");
+            }
+        });
+
+        if (audioFiles != null && audioFiles.length > 0) {
+            String[] audioFileNames = new String[audioFiles.length];
+            for (int i = 0; i < audioFiles.length; i++) {
+                audioFileNames[i] = audioFiles[i].getName();
+            }
+
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            builder.setTitle("Choose an audio file");
+            builder.setItems(audioFileNames, new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    File selectedAudioFile = audioFiles[which];
+                    // Upload To Firebase Storage
+                    uploadFileToFirebaseStorage(Uri.fromFile(selectedAudioFile));
+                }
+            });
+
+            builder.show();
+        } else {
+            Toast.makeText(this, "No audio files found", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    public void onBackPressed() {
+        new AlertDialog.Builder(this)
+                .setTitle("Exit App")
+                .setMessage("Are you sure you want to exit?")
+                .setPositiveButton(android.R.string.yes, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        // Close the app
+                        finishAffinity();
+                    }
+                })
+                .setNegativeButton(android.R.string.no, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        dialog.dismiss();
+                    }
+                })
+                .setIcon(android.R.drawable.ic_dialog_alert)
+                .show();
     }
 }

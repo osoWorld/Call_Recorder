@@ -26,6 +26,7 @@ public class SignupActivity extends AppCompatActivity {
     private FirebaseFirestore fireStore;
     private String userid;
     private FirebaseUser user;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -60,22 +61,22 @@ public class SignupActivity extends AppCompatActivity {
                 } else if (!email.contains("@") && !email.contains("com")) {
                     Toast.makeText(SignupActivity.this, "Invalid Email", Toast.LENGTH_SHORT).show();
                 } else {
-                    signUpWithFirebase(email, password,name);
+                    signUpWithFirebase(email, password, name);
                 }
             }
         });
     }
 
-    private void signUpWithFirebase(String email, String password,String name) {
+    private void signUpWithFirebase(String email, String password, String name) {
         binding.progressBarSignup.setVisibility(View.VISIBLE);
         auth.createUserWithEmailAndPassword(email, password).addOnCompleteListener(new OnCompleteListener<AuthResult>() {
             @Override
             public void onComplete(@NonNull Task<AuthResult> task) {
                 if (task.isSuccessful()) {
                     user = auth.getCurrentUser();
-                    if (user != null){
+                    if (user != null) {
                         userid = user.getUid();
-                        saveUserDataToFirebase(name,email,"",userid);
+                        saveUserDataToFirebase(name, email, "", userid);
                     }
                 }
             }
@@ -88,7 +89,7 @@ public class SignupActivity extends AppCompatActivity {
         });
     }
 
-    private void saveUserDataToFirebase(String username,String useremail,String phone ,String userid) {
+    private void saveUserDataToFirebase(String username, String useremail, String phone, String userid) {
         DocumentReference userDocument = fireStore.collection("Users").document(userid);
 
         RegistrationModel register = new RegistrationModel(
